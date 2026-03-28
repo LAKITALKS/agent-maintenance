@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/agent-maintenance loadout:*)",
+      "Bash(.venv/bin/pytest tests/ --no-header -q)",
+      "Bash(cp -r examples/skills /tmp/forge-test-skills)",
+      "Bash(.venv/bin/agent-maintenance forge:*)",
+      "Bash(cp -r examples/skills /tmp/forge-live-skills)",
+      "Read(//tmp/**)",
+      "Bash(.venv/bin/pytest tests/test_providers/test_anthropic.py -v --no-header)",
+      "Bash(.venv/bin/python -c \"import anthropic; print\\(''anthropic'', anthropic.__version__\\)\")",
+      "Bash(.venv/bin/python -c \":*)",
+      "Bash(security find-generic-password:*)",
+      "Bash(source ~/.zshrc)",
+      "Bash(.venv/bin/ruff check:*)",
+      "Bash(git config:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+# agent-maintenance.toml
+# Copy this file to agent-maintenance.toml and adjust to your setup.
+# All settings are optional — missing keys fall back to built-in defaults.
+
+# Path to your local skill library (default: "skills")
+skills_dir = "skills"
+
+# Where archived skills are moved to (default: ".archive")
+archive_dir = ".archive"
+
+# Output directory for loadout files (default: "loadout")
+output_dir = "loadout"
+
+# Number of top skills selected by loadout prepare (default: 5)
+top_k = 5
+
+# Minimum similarity score to flag two skills as merge candidates (default: 0.75)
+similarity_threshold = 0.75
+
+# Sentence-Transformers model for semantic embeddings (default: all-MiniLM-L6-v2)
+# Requires: pip install agent-maintenance[embeddings]
+# embedding_model = "all-MiniLM-L6-v2"
+
+# Claude model for LLM-assisted forge merges (default: claude-haiku-4-5-20251001)
+# Requires: pip install agent-maintenance[llm] and ANTHROPIC_API_KEY set in env
+# llm_model = "claude-haiku-4-5-20251001"
