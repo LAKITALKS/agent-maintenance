@@ -44,21 +44,25 @@ Given a task description, assembles only the skills you actually need:
 
 ## Installation
 
+`agent-maintenance` is not yet on PyPI. Install directly from the repository:
+
 ```bash
-pip install agent-maintenance
+git clone https://github.com/lazarosvarvatis/agent-maintenance
+cd agent-maintenance
+pip install -e .
 ```
 
 **Optional extras:**
 
 ```bash
 # Semantic similarity via local sentence-transformers (~80 MB model download)
-pip install agent-maintenance[embeddings]
+pip install -e ".[embeddings]"
 
 # LLM-compressed meta-skills via Anthropic Claude
-pip install agent-maintenance[llm]
+pip install -e ".[llm]"
 
 # Everything
-pip install agent-maintenance[embeddings,llm]
+pip install -e ".[embeddings,llm]"
 ```
 
 ---
@@ -202,6 +206,29 @@ src/agent_maintenance/
 ├── loadout/      # ranker · selector · writer
 └── providers/    # Pluggable: EmbeddingProvider, LLMProvider + factory
 ```
+
+---
+
+## What's not in v0.1
+
+This is a focused first release. The following are intentionally out of scope:
+
+- **Usage-frequency tracking** — no telemetry, no automatic scoring based on how often a skill is used
+- **Historical success scoring** — skills are ranked by semantic similarity, not by past performance data
+- **Adaptive ranking over time** — loadout selection is stateless; it does not learn from previous sessions
+- **Additional LLM providers** — only Anthropic Claude is supported; Ollama and OpenAI are not yet wired in
+- **IDE integration** — no VS Code extension, no Claude Code hooks, no Cursor plugin
+- **Cloud sync** — everything runs locally on your filesystem
+
+These may come in future releases. For now, the tool is deliberately small and local.
+
+---
+
+## Quality
+
+- **66 tests** across all core modules
+- **CI** via GitHub Actions (Python 3.11 + 3.12, `pytest` + `ruff`)
+- **Linter-clean** — passes `ruff` with no warnings
 
 ---
 
