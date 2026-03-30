@@ -25,6 +25,8 @@ class AppConfig(BaseModel):
     similarity_threshold: float = 0.75
     embedding_model: str | None = None  # None → use provider default
     llm_model: str | None = None        # None → use provider default (claude-haiku-4-5-20251001)
+    ollama_host: str | None = None      # None → use OLLAMA_HOST env or http://localhost:11434
+    ollama_model: str | None = None     # None → use OLLAMA_MODEL env or llama3.2
 
     def resolve(self) -> AppConfig:
         """Return a copy with all paths resolved to absolute."""
