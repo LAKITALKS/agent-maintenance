@@ -24,3 +24,13 @@ similarity_threshold = 0.75
 # Claude model for LLM-assisted forge merges (default: claude-haiku-4-5-20251001)
 # Requires: pip install agent-maintenance[llm] and ANTHROPIC_API_KEY set in env
 # llm_model = "claude-haiku-4-5-20251001"
+
+# Ollama server URL (default: http://localhost:11434)
+# Override if Ollama runs on a different host or port.
+# Can also be set via OLLAMA_HOST environment variable.
+# ollama_host = "http://localhost:11434"
+
+# Ollama model for forge merges (default: llama3.2)
+# Any model pulled via `ollama pull <name>` can be used here.
+# Can also be set via OLLAMA_MODEL environment variable.
+# ollama_model = "llama3.2"

@@ -28,7 +28,7 @@ Scans a directory of skill/rule/Markdown files and finds overlap:
 
 - Detects similar and redundant skills via embedding-based semantic similarity
 - Groups merge candidates into clusters
-- Generates a compressed meta-skill per cluster (via Anthropic Claude or structural fallback)
+- Generates a compressed meta-skill per cluster (via Anthropic Claude, local Ollama, or structural fallback)
 - Moves original files to a dated archive — **originals are never deleted**
 - Enriches missing metadata
 
@@ -70,7 +70,10 @@ pip install -e ".[embeddings,llm]"
 ## Quickstart
 
 ```bash
-# Scan your skill library — see what's redundant
+# Health overview — read-only snapshot of your library
+agent-maintenance forge status --skills-dir ./skills
+
+# Scan — see what's redundant and which skills could be merged
 agent-maintenance forge scan --skills-dir ./skills
 
 # Dry run — preview what forge run would do, without touching files
@@ -170,10 +173,17 @@ CLI flags always override the config file.
 
 ---
 
-## LLM provider
+## LLM providers
 
-`forge run` uses Anthropic Claude when `ANTHROPIC_API_KEY` is set and the
-`[llm]` extra is installed. Otherwise it falls back to a structural merge.
+`forge run` resolves the best available LLM in this order:
+
+| Priority | Provider | Requires |
+|---|---|---|
+| 1 | **Anthropic Claude** | `ANTHROPIC_API_KEY` + `pip install agent-maintenance[llm]` |
+| 2 | **Ollama** (local) | Ollama running at `localhost:11434` — no API key, no extra install |
+| 3 | **Structural fallback** | always available |
+
+**Anthropic:**
 
 ```bash
 pip install agent-maintenance[llm]
@@ -181,7 +191,24 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 agent-maintenance forge run --skills-dir ./skills
 ```
 
-The model can be overridden via `llm_model` in `agent-maintenance.toml`.
+**Ollama:**
+
+```bash
+# Install Ollama: https://ollama.com
+ollama pull llama3.2
+ollama serve
+# agent-maintenance auto-detects it — no config needed
+agent-maintenance forge run --skills-dir ./skills
+```
+
+Override the Ollama server or model via environment variables:
+
+```bash
+export OLLAMA_HOST="http://myserver:11434"
+export OLLAMA_MODEL="mistral"
+```
+
+The model can also be set via `llm_model` in `agent-maintenance.toml`.
 
 ---
 
@@ -200,33 +227,31 @@ The model can be overridden via `llm_model` in `agent-maintenance.toml`.
 
 ```
 src/agent_maintenance/
-├── cli/          # Typer-based commands: forge scan, forge run, loadout prepare
+├── cli/          # Typer-based commands: forge status, forge scan, forge run, loadout prepare
 ├── core/         # Shared: Skill model, Markdown+YAML parser, AppConfig
 ├── forge/        # reader · normalizer · comparator · clusterer · merger · archiver · writer
 ├── loadout/      # ranker · selector · writer
-└── providers/    # Pluggable: EmbeddingProvider, LLMProvider + factory
+└── providers/    # Pluggable: EmbeddingProvider, LLMProvider (Anthropic, Ollama, stub) + factory
 ```
 
 ---
 
-## What's not in v0.1
+## What's not in v0.2
 
-This is a focused first release. The following are intentionally out of scope:
+The following are intentionally out of scope:
 
 - **Usage-frequency tracking** — no telemetry, no automatic scoring based on how often a skill is used
 - **Historical success scoring** — skills are ranked by semantic similarity, not by past performance data
 - **Adaptive ranking over time** — loadout selection is stateless; it does not learn from previous sessions
-- **Additional LLM providers** — only Anthropic Claude is supported; Ollama and OpenAI are not yet wired in
+- **Additional LLM providers** — Anthropic and Ollama are supported; OpenAI is not
 - **IDE integration** — no VS Code extension, no Claude Code hooks, no Cursor plugin
 - **Cloud sync** — everything runs locally on your filesystem
-
-These may come in future releases. For now, the tool is deliberately small and local.
 
 ---
 
 ## Quality
 
-- **66 tests** across all core modules
+- **120 tests** across all core modules
 - **CI** via GitHub Actions (Python 3.11 + 3.12, `pytest` + `ruff`)
 - **Linter-clean** — passes `ruff` with no warnings
 
@@ -238,7 +263,9 @@ These may come in future releases. For now, the tool is deliberately small and l
 - [x] LLM-assisted merge via Anthropic Claude
 - [x] `forge run` with dry-run mode
 - [x] Config file (`agent-maintenance.toml`)
-- [ ] Additional LLM providers (Ollama, OpenAI)
+- [x] Ollama provider (local inference, auto-detected)
+- [x] `forge status` — read-only library health overview
+- [x] Improved structural merge with section synthesis
 - [ ] `loadout prepare` with LLM-ranked selection
 - [ ] Plugin system for custom providers
 

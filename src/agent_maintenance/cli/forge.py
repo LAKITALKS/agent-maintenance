@@ -29,6 +29,13 @@ def _require_dir(path: Path) -> None:
         raise typer.Exit(code=1)
 
 
+def _redundancy_signal(count: int, total: int) -> str:
+    """Format a count/total into a colour-coded signal string."""
+    if count == 0:
+        return "[green]none[/green]"
+    return f"[yellow]{count}[/yellow] of {total}"
+
+
 @app.command()
 def scan(
     skills_dir: Annotated[
@@ -213,4 +220,98 @@ def run(
             f"[green]✓ Forge run complete.[/green] "
             f"{meta_skills_created} meta-skill(s) created, "
             f"{originals_archived} original(s) archived."
+        )
+
+
+@app.command()
+def status(
+    skills_dir: Annotated[
+        Path | None,
+        typer.Option("--skills-dir", "-s", help="Directory containing skill Markdown files."),
+    ] = None,
+    archive_dir: Annotated[
+        Path | None,
+        typer.Option("--archive-dir", "-a", help="Archive directory to count archived skills."),
+    ] = None,
+    threshold: Annotated[
+        float | None,
+        typer.Option("--threshold", "-t", help="Similarity threshold for candidate detection."),
+    ] = None,
+) -> None:
+    """Show a read-only health overview of the skill library.
+
+    Reports skill count, archived count, metadata quality, and merge-candidate
+    redundancy. Never writes or moves any files.
+    """
+    config = load_config().apply_overrides(
+        skills_dir=skills_dir,
+        archive_dir=archive_dir,
+        similarity_threshold=threshold,
+    )
+    _require_dir(config.skills_dir)
+
+    reader = SkillReader(config.skills_dir)
+
+    with console.status("[bold green]Reading skills…"):
+        skills = reader.read_all()
+
+    # ── Archived count (filesystem only) ────────────────────────────────────
+    archived_count = 0
+    if config.archive_dir.is_dir():
+        archived_count = sum(1 for _ in config.archive_dir.rglob("*.md"))
+
+    # ── Metadata quality ────────────────────────────────────────────────────
+    no_description = [s for s in skills if not s.metadata.description.strip()]
+    no_tags = [s for s in skills if not s.tags]
+
+    # ── Merge candidates ────────────────────────────────────────────────────
+    embed_provider = get_embedding_provider(config.embedding_model)
+    comparator = SkillComparator(
+        embedding_provider=embed_provider,
+        threshold=config.similarity_threshold,
+    )
+
+    with console.status("[bold green]Analysing similarity…"):
+        candidates = comparator.find_merge_candidates(skills)
+
+    clusters = cluster_merge_candidates(skills, candidates) if candidates else []
+
+    # ── Output ──────────────────────────────────────────────────────────────
+    console.print(
+        f"\n[bold]Library Health[/bold] — [cyan]{config.skills_dir}[/cyan]\n"
+    )
+
+    grid = Table(show_header=False, box=None, padding=(0, 2))
+    grid.add_column("Key", style="dim", no_wrap=True)
+    grid.add_column("Value")
+
+    grid.add_row("Skills", str(len(skills)))
+    grid.add_row(
+        "Archived",
+        f"{archived_count}  [dim](in {config.archive_dir}/)[/dim]",
+    )
+    grid.add_row("No description", _redundancy_signal(len(no_description), len(skills)))
+    grid.add_row("No tags", _redundancy_signal(len(no_tags), len(skills)))
+    grid.add_row(
+        f"Merge candidates  [dim](threshold {config.similarity_threshold})[/dim]",
+        (
+            f"{len(candidates)} pair(s) in {len(clusters)} group(s)"
+            if candidates
+            else "[green]none[/green]"
+        ),
+    )
+
+    console.print(grid)
+
+    if candidates:
+        console.print(
+            "\n[dim]Run [bold]forge scan[/bold] for details "
+            "or [bold]forge run[/bold] to merge.[/dim]"
+        )
+    elif skills:
+        console.print("\n[green]✓ Library looks healthy.[/green]")
+    else:
+        console.print(
+            "\n[yellow]No skills found. "
+            f"Add .md files to [cyan]{config.skills_dir}[/cyan].[/yellow]"
         )
