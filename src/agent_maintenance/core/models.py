@@ -23,12 +23,24 @@ class SkillMetadata(BaseModel):
 
 
 class Skill(BaseModel):
-    """A single skill loaded from a Markdown file."""
+    """A single skill loaded from a Markdown file.
+
+    Two on-disk layouts are supported:
+
+    - Legacy flat skill: a standalone ``skills/<name>.md`` file.
+    - Folder skill: a ``skills/<name>/SKILL.md`` file, optionally accompanied
+      by scripts, references, or other assets in the same folder.
+
+    In both cases ``source_path`` points at the Markdown file that was parsed.
+    ``is_folder_skill`` and ``archive_target`` capture the difference so that
+    archiving moves the whole folder for folder skills, never just SKILL.md.
+    """
 
     metadata: SkillMetadata
     content: str
     source_path: Path | None = None
     raw_frontmatter: dict[str, Any] = Field(default_factory=dict)
+    is_folder_skill: bool = False
 
     @property
     def name(self) -> str:
@@ -37,6 +49,21 @@ class Skill(BaseModel):
     @property
     def tags(self) -> list[str]:
         return self.metadata.tags
+
+    @property
+    def archive_target(self) -> Path | None:
+        """The filesystem entry to archive for this skill.
+
+        - Legacy flat skill → the Markdown file itself (``source_path``).
+        - Folder skill → the enclosing folder (``source_path.parent``), so that
+          scripts, references, and assets travel with the SKILL.md.
+
+        Returns ``None`` when the skill has no ``source_path`` (e.g. synthesised
+        meta-skills that have not been written to disk yet).
+        """
+        if self.source_path is None:
+            return None
+        return self.source_path.parent if self.is_folder_skill else self.source_path
 
     def __repr__(self) -> str:
         return f"Skill(name={self.name!r}, tags={self.tags})"

@@ -8,19 +8,21 @@ from pathlib import Path
 
 
 class SkillArchiver:
-    """Moves skill files into a timestamped archive directory.
+    """Moves skill files or folders into a timestamped archive directory.
 
-    Files are never deleted — they are moved to preserve history.
-    Archive layout:  <archive_dir>/<YYYY-MM-DD>/<original_filename>
+    Entries are never deleted — they are moved to preserve history. Both a
+    single Markdown file (legacy flat skill) and a whole folder (folder-format
+    skill, including its scripts/assets/references) can be archived.
+    Archive layout:  <archive_dir>/<YYYY-MM-DD>/<original_name>
     """
 
     def __init__(self, archive_dir: Path) -> None:
         self.archive_dir = archive_dir
 
     def archive(self, path: Path) -> Path:
-        """Move a skill file to the archive and return the new path."""
+        """Move a skill file or folder to the archive and return the new path."""
         if not path.exists():
-            raise FileNotFoundError(f"Cannot archive missing file: {path}")
+            raise FileNotFoundError(f"Cannot archive missing path: {path}")
 
         dated_dir = self.archive_dir / datetime.now().strftime("%Y-%m-%d")
         dated_dir.mkdir(parents=True, exist_ok=True)

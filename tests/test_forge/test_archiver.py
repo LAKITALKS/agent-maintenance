@@ -41,7 +41,7 @@ class TestSkillArchiver:
 
     def test_archive_raises_on_missing_file(self, tmp_path: Path) -> None:
         archiver = SkillArchiver(tmp_path / ".archive")
-        with pytest.raises(FileNotFoundError, match="Cannot archive missing file"):
+        with pytest.raises(FileNotFoundError, match="Cannot archive missing path"):
             archiver.archive(tmp_path / "nonexistent.md")
 
     def test_archive_many_moves_all_files(self, tmp_path: Path) -> None:
@@ -55,6 +55,45 @@ class TestSkillArchiver:
         assert len(results) == 3
         assert all(d.exists() for d in results)
         assert all(not p.exists() for p in paths)
+
+    def test_archive_moves_whole_folder(self, tmp_path: Path) -> None:
+        skills = tmp_path / "skills"
+        skills.mkdir()
+        # A folder skill: SKILL.md plus an extra asset file
+        folder = skills / "my_folder_skill"
+        (folder / "scripts").mkdir(parents=True)
+        (folder / "SKILL.md").write_text("# Folder skill", encoding="utf-8")
+        (folder / "reference.md").write_text("reference notes", encoding="utf-8")
+        (folder / "scripts" / "check.py").write_text("print('hi')", encoding="utf-8")
+
+        archiver = SkillArchiver(tmp_path / ".archive")
+        dest = archiver.archive(folder)
+
+        # The whole folder moved — nothing orphaned in skills/
+        assert dest.is_dir()
+        assert not folder.exists()
+        assert (dest / "SKILL.md").exists()
+        assert (dest / "reference.md").read_text() == "reference notes"
+        assert (dest / "scripts" / "check.py").exists()
+
+    def test_archive_folder_avoids_overwrite_with_counter(self, tmp_path: Path) -> None:
+        skills = tmp_path / "skills"
+        skills.mkdir()
+        archiver = SkillArchiver(tmp_path / ".archive")
+
+        first = skills / "dup"
+        first.mkdir()
+        (first / "SKILL.md").write_text("first", encoding="utf-8")
+        dest1 = archiver.archive(first)
+
+        second = skills / "dup"
+        second.mkdir()
+        (second / "SKILL.md").write_text("second", encoding="utf-8")
+        dest2 = archiver.archive(second)
+
+        assert dest1 != dest2
+        assert (dest1 / "SKILL.md").read_text() == "first"
+        assert (dest2 / "SKILL.md").read_text() == "second"
 
     def test_archive_avoids_overwrite_with_counter(self, tmp_path: Path) -> None:
         skills = tmp_path / "skills"
