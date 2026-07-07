@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from agent_maintenance.core.models import LoadoutResult
@@ -51,12 +52,42 @@ class LoadoutWriter:
         return output_path
 
     def write_loadout_dir(self, result: LoadoutResult, output_dir: Path) -> Path:
-        """Copy each selected skill into a dedicated loadout directory."""
+        """Copy each selected skill into a dedicated loadout directory.
+
+        - Legacy flat skills are copied as a single ``.md`` file.
+        - Folder skills are copied as their whole folder (scripts, references,
+          and assets included), keyed by the folder name — never flattened to a
+          bare ``SKILL.md`` that would collide with other folder skills.
+
+        Name collisions are resolved with a numeric suffix.
+        """
         output_dir.mkdir(parents=True, exist_ok=True)
 
         for skill in result.selected_skills:
-            if skill.source_path and skill.source_path.exists():
-                dest = output_dir / skill.source_path.name
-                dest.write_bytes(skill.source_path.read_bytes())
+            source = skill.archive_target  # folder for folder skills, else the .md file
+            if not source or not source.exists():
+                continue
+
+            if source.is_dir():
+                dest = self._unique_dest(output_dir, source.name)
+                shutil.copytree(source, dest)
+            else:
+                dest = self._unique_dest(output_dir, source.name)
+                dest.write_bytes(source.read_bytes())
 
         return output_dir
+
+    @staticmethod
+    def _unique_dest(directory: Path, name: str) -> Path:
+        """Return a destination path in ``directory`` that does not yet exist."""
+        dest = directory / name
+        if not dest.exists():
+            return dest
+
+        stem = Path(name).stem
+        suffix = Path(name).suffix
+        counter = 1
+        while dest.exists():
+            dest = directory / f"{stem}_{counter}{suffix}"
+            counter += 1
+        return dest
