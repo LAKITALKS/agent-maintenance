@@ -40,6 +40,14 @@ Given a task description, assembles only the skills you actually need:
 - Selects the top-K most relevant ones
 - Outputs a single `CONTEXT.md` or copies files to a `loadout/` directory
 
+**When this is useful — and when it isn't.** `loadout` is aimed at raw-API,
+custom-agent, and non-native workflows where *you* control which context goes
+into the prompt and there is no built-in skill selection. It is a static,
+semantic, top-K prefilter — nothing more. If you already use a standard-compliant
+agent (e.g. Claude Code) that does **progressive skill loading** on its own,
+`loadout` is not meant to replace that mechanism; the agent's native selection is
+generally the better path there.
+
 ---
 
 ## Installation
@@ -47,7 +55,7 @@ Given a task description, assembles only the skills you actually need:
 `agent-maintenance` is not yet on PyPI. Install directly from the repository:
 
 ```bash
-git clone https://github.com/lazarosvarvatis/agent-maintenance
+git clone https://github.com/LAKITALKS/agent-maintenance
 cd agent-maintenance
 pip install -e .
 ```
@@ -63,7 +71,18 @@ pip install -e ".[llm]"
 
 # Everything
 pip install -e ".[embeddings,llm]"
+
+# Development (tests, linting, type-checking — includes pytest + pytest-cov)
+pip install -e ".[dev]"
 ```
+
+Run the test suite with `pytest` once the `[dev]` extra is installed.
+
+> **Safety note:** without the `[embeddings]` extra the tool falls back to
+> deterministic *stub* embeddings whose similarity scores are **not** semantically
+> meaningful. `forge scan` and `forge run --dry-run` still work (and label their
+> output as stub-based), but a destructive `forge run` is **refused** unless you
+> pass `--allow-unsafe-stub-merge` (intended for tests/demos only).
 
 ---
 
@@ -130,7 +149,9 @@ merge and notes `merge_method: structural` in the frontmatter.
 
 ## Skill file format
 
-Skills are Markdown files with an optional YAML frontmatter block:
+Two on-disk layouts are supported and can be mixed freely in one directory:
+
+**1. Legacy flat skills** — a standalone Markdown file `skills/<name>.md`:
 
 ```markdown
 ---
@@ -145,8 +166,29 @@ version: "1.0"
 ...content...
 ```
 
-Skills without frontmatter are accepted — name defaults to the filename stem,
-description is inferred from the first heading.
+**2. Folder skills** — the standard Agent Skills layout `skills/<name>/SKILL.md`,
+optionally alongside scripts, references, or assets in the same folder:
+
+```
+skills/
+├── code_review.md                 # flat skill
+└── react_useeffect_patterns/      # folder skill
+    ├── SKILL.md                    # parsed as the skill
+    ├── reference.md               # travels with the skill when archived
+    └── scripts/check.py
+```
+
+`SKILL.md` needs only minimal frontmatter (`name` and `description`); `tags` are
+optional and their absence is never an error. If `name` is omitted it defaults to
+the folder name. When a folder skill is archived, **the entire folder** is moved —
+scripts and assets included — never just the `SKILL.md`.
+
+Discovery is one level deep: only `skills/*.md` and `skills/<name>/SKILL.md` are
+picked up. Hidden folders (including `.archive/`) and more deeply nested
+`SKILL.md` files are ignored.
+
+Skills without frontmatter are accepted — name defaults to the filename (or folder)
+stem, description is inferred from the first heading.
 
 ---
 
@@ -217,6 +259,8 @@ The model can also be set via `llm_model` in `agent-maintenance.toml`.
 | Guarantee | How |
 |---|---|
 | Originals never deleted | `forge run` moves files to `.archive/YYYY-MM-DD/`, never `rm` |
+| Folder skills stay intact | Folder skills are archived as whole folders — scripts and assets included, never just `SKILL.md` |
+| No merge on meaningless data | Destructive `forge run` is refused under stub embeddings unless `--allow-unsafe-stub-merge` is passed |
 | Preview before committing | `--dry-run` flag on every destructive command |
 | Fallback on missing provider | Stub providers keep the tool functional without any API key |
 | No key leakage | API keys are never logged, printed, or included in exceptions |
@@ -236,7 +280,7 @@ src/agent_maintenance/
 
 ---
 
-## What's not in v0.2
+## What's not in v0.3
 
 The following are intentionally out of scope:
 
@@ -266,6 +310,8 @@ The following are intentionally out of scope:
 - [x] Ollama provider (local inference, auto-detected)
 - [x] `forge status` — read-only library health overview
 - [x] Improved structural merge with section synthesis
+- [x] Folder-format skills (`skills/<name>/SKILL.md`) with whole-folder archiving
+- [x] Refuse destructive `forge run` under stub embeddings
 - [ ] `loadout prepare` with LLM-ranked selection
 - [ ] Plugin system for custom providers
 

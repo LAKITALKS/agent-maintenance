@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-maintenance"
-version = "0.2.0"
+version = "0.3.0"
 description = "CLI tool for maintaining and preparing local skill libraries for coding agents"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -44,8 +44,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/lazarosvarvatis/agent-maintenance"
-Issues = "https://github.com/lazarosvarvatis/agent-maintenance/issues"
+Homepage = "https://github.com/LAKITALKS/agent-maintenance"
+Issues = "https://github.com/LAKITALKS/agent-maintenance/issues"
 
 [project.scripts]
 agent-maintenance = "agent_maintenance.cli.main:app"
