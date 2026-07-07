@@ -17,6 +17,7 @@ from agent_maintenance.forge.merger import SkillMerger
 from agent_maintenance.forge.normalizer import SkillNormalizer
 from agent_maintenance.forge.reader import SkillReader
 from agent_maintenance.forge.writer import write_skill_file
+from agent_maintenance.providers.base import EmbeddingProvider
 from agent_maintenance.providers.factory import get_embedding_provider, get_llm_provider
 
 app = typer.Typer(no_args_is_help=True)
@@ -27,6 +28,39 @@ def _require_dir(path: Path) -> None:
     if not path.is_dir():
         console.print(f"[red]Error:[/red] skills directory not found: [cyan]{path}[/cyan]")
         raise typer.Exit(code=1)
+
+
+def _stub_notice(provider: EmbeddingProvider) -> None:
+    """Warn — without pretending similarity is trustworthy — when the stub is active."""
+    if provider.is_stub:
+        console.print(
+            "[yellow]⚠  Stub embeddings active — similarity scores are NOT "
+            "semantically meaningful.[/yellow]\n"
+            "[dim]   Install real embeddings: pip install -e \".\\[embeddings]\"[/dim]\n"
+        )
+
+
+def _guard_against_stub_merge(provider: EmbeddingProvider, allow_unsafe: bool) -> None:
+    """Refuse a destructive forge run when only stub embeddings are available.
+
+    The stub produces deterministic hash-based vectors whose similarity is
+    meaningless, so merging/archiving on that basis could destroy a real
+    library. The run is refused unless the operator explicitly opts in.
+    """
+    if not provider.is_stub or allow_unsafe:
+        return
+    console.print(
+        "[red]Error:[/red] stub embeddings are active and are NOT semantically "
+        "meaningful.\n"
+        "Destructive forge runs (merge + archive) are refused for safety, because "
+        "merges would be based on meaningless similarity scores.\n\n"
+        "Install real embeddings:\n"
+        '  [cyan]pip install -e ".\\[embeddings]"[/cyan]\n'
+        "  [cyan]pip install agent-maintenance\\[embeddings][/cyan]\n\n"
+        "Only for tests/demo purposes you may override this with "
+        "[yellow]--allow-unsafe-stub-merge[/yellow]."
+    )
+    raise typer.Exit(code=1)
 
 
 def _redundancy_signal(count: int, total: int) -> str:
@@ -54,6 +88,8 @@ def scan(
     reader = SkillReader(config.skills_dir)
     provider = get_embedding_provider(config.embedding_model)
     comparator = SkillComparator(embedding_provider=provider, threshold=config.similarity_threshold)
+
+    _stub_notice(provider)
 
     with console.status("[bold green]Reading skills…"):
         skills = reader.read_all()
@@ -117,6 +153,13 @@ def run(
         bool,
         typer.Option("--dry-run", help="Preview all actions without writing or moving any files."),
     ] = False,
+    allow_unsafe_stub_merge: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unsafe-stub-merge",
+            help="Permit a destructive run using meaningless stub embeddings (tests/demo only).",
+        ),
+    ] = False,
 ) -> None:
     """Run a full forge pass: merge similar skills, archive originals, write meta-skills.
 
@@ -142,6 +185,14 @@ def run(
     )
     merger = SkillMerger(llm_provider=llm_provider)
     archiver = SkillArchiver(config.archive_dir)
+
+    # ── 0. Safety: refuse destructive runs on meaningless stub embeddings ────
+    if dry_run:
+        _stub_notice(embed_provider)
+    else:
+        _guard_against_stub_merge(embed_provider, allow_unsafe_stub_merge)
+        if embed_provider.is_stub:
+            _stub_notice(embed_provider)
 
     # ── 1. Read & enrich ────────────────────────────────────────────────────
     with console.status("[bold green]Reading skills…"):
@@ -193,10 +244,14 @@ def run(
         dest_path = config.skills_dir / f"{meta_skill.name}.md"
         console.print(f"  → Meta-skill: [cyan]{dest_path.name}[/cyan] {method_label}")
 
-        # List originals to archive
-        to_archive = [s.source_path for s in cluster if s.source_path and s.source_path.exists()]
+        # List originals to archive. Folder skills archive as a whole folder
+        # (archive_target == the folder), flat skills as the single .md file.
+        to_archive = [
+            s.archive_target for s in cluster if s.archive_target and s.archive_target.exists()
+        ]
         for p in to_archive:
-            console.print(f"  → Archive:    [dim]{p.name}[/dim]")
+            label = f"{p.name}/" if p.is_dir() else p.name
+            console.print(f"  → Archive:    [dim]{label}[/dim]")
 
         if not dry_run:
             write_skill_file(meta_skill, dest_path)
@@ -270,6 +325,8 @@ def status(
         embedding_provider=embed_provider,
         threshold=config.similarity_threshold,
     )
+
+    _stub_notice(embed_provider)
 
     with console.status("[bold green]Analysing similarity…"):
         candidates = comparator.find_merge_candidates(skills)

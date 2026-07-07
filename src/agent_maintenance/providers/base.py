@@ -12,6 +12,11 @@ class EmbeddingProvider(ABC):
     (e.g. OpenAI, Cohere, sentence-transformers, Ollama).
     """
 
+    #: True only for the deterministic stub provider, whose similarity scores
+    #: are NOT semantically meaningful. Consumers use this to refuse destructive
+    #: operations that would rely on trustworthy similarity.
+    is_stub: bool = False
+
     @abstractmethod
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Return a list of embedding vectors for the given texts."""

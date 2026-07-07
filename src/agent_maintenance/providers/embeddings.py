@@ -14,6 +14,8 @@ class StubEmbeddingProvider(EmbeddingProvider):
     Do NOT use for real similarity comparisons.
     """
 
+    is_stub = True
+
     _DIM = 64
 
     def embed(self, texts: list[str]) -> list[list[float]]:
