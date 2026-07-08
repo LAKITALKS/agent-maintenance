@@ -5,6 +5,14 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Deferred to v0.4.0
+- Legacy flat-library → Agent Skills folder-layout conversion
+  (`loadout --format skillmd` / `convert` command): migrating legacy flat
+  `.md` skill libraries into the Agent Skills folder layout with `SKILL.md`
+  files. Deferred from the v0.3 blueprint (Phase 4.2).
+
 ## [0.3.0] - 2026-07-07
 
 ### Added
