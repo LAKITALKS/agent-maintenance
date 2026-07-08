@@ -319,4 +319,4 @@ The following are intentionally out of scope:
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
